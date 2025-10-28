@@ -76,9 +76,14 @@
     <div class="row">
       <div>
         <div class="section-title">1) Load PCG clips</div>
-        <label for="clipsCsvInput">Clips CSV (remote URLs)</label>
+        <label for="clipsCsvInput">Clips CSV (remote URLs): columns <code>url,filename</code> (+optional like <code>gt_label</code>)</label>
         <input id="clipsCsvInput" name="clipsCsvInput" type="file" accept=".csv" />
       </div>
+      <div>
+        <label for="aiCsvInput">Optional AI outputs (CSV: filename,ai_label,ai_prob,explainer_url)</label>
+        <input id="aiCsvInput" name="aiCsvInput" type="file" accept=".csv" />
+      </div>
+      <div></div> <!-- Empty column for layout -->
     </div>
 
     <div class="section-title">2) Session settings</div>
@@ -121,7 +126,6 @@
 
 <script>
   // ---------- Globals ----------
-  const wavInput       = document.getElementById('wavInput');
   const clipsCsvInput  = document.getElementById('clipsCsvInput');
   const aiCsvInput     = document.getElementById('aiCsvInput');
   const raterIdInput   = document.getElementById('raterId');
@@ -133,7 +137,7 @@
   const aiPill         = document.getElementById('aiPill');
   const sessionUI      = document.getElementById('sessionUI');
 
-  let clips = [];           // [{name, url, file}]
+  let clips = [];           // [{name, url}]
   let aiMap = {};           // filename -> {ai_label, ai_prob, explainer_url}
   let clipMeta = {};        // filename -> metadata from clips.csv
   let session = null;       // {rater, items:[], started_at}
@@ -148,42 +152,7 @@
 
   // Use CORS proxy directly for all remote URLs
   function withCorsProxy(url) {
-    // For local files (blob URLs), don't use proxy
-    if (url.startsWith('blob:')) {
-      return url;
-    }
-    // Use CORS proxy for all remote URLs
     return `https://corsproxy.io/?${encodeURIComponent(url)}`;
-  }
-
-  // Keep the Google Drive conversion for reference, but we'll use proxy for everything
-  function toDirectDriveUrl(u) {
-    try {
-      const url = new URL(u);
-      
-      // Handle various Google Drive URL patterns
-      if (url.hostname.includes('google.com')) {
-        // Pattern 1: /file/d/FILE_ID/view?usp=sharing
-        let match = url.pathname.match(/\/file\/d\/([^\/]+)/);
-        if (match) {
-          return `https://drive.google.com/uc?id=${match[1]}&export=download`;
-        }
-        
-        // Pattern 2: uc?export=download&id=FILE_ID
-        const idParam = url.searchParams.get('id');
-        if (idParam) {
-          return `https://drive.google.com/uc?id=${idParam}&export=download`;
-        }
-        
-        // Pattern 3: open?id=FILE_ID
-        if (url.pathname === '/open' && url.searchParams.get('id')) {
-          return `https://drive.google.com/uc?id=${url.searchParams.get('id')}&export=download`;
-        }
-      }
-    } catch (e) {
-      console.warn('URL parsing failed:', e);
-    }
-    return u;
   }
 
   // ===== Robust CSV parsing (BOM, ; delimiter, CRLF) =====
@@ -218,15 +187,6 @@
   }
 
   // ---------- Loaders ----------
-  wavInput.addEventListener('change', ()=>{
-    clips = [];
-    for(const f of wavInput.files){
-      const u = URL.createObjectURL(f);
-      clips.push({name:f.name, url:u, file:f});
-    }
-    loadedCountPill.textContent = `Loaded clips: ${clips.length}`;
-  });
-
   clipsCsvInput.addEventListener('change', ()=>{
     const f = clipsCsvInput.files && clipsCsvInput.files[0];
     if(!f) return;
@@ -251,7 +211,6 @@
       clips = list.map(item => ({ 
         name: item.name, 
         url: withCorsProxy(item.url), // Use proxy directly
-        file: null 
       }));
       loadedCountPill.textContent = `Loaded clips: ${clips.length}`;
       alert('Loaded ' + clips.length + ' remote clips (using CORS proxy for reliable access).');
@@ -284,7 +243,7 @@
 
   // ---------- Session logic ----------
   startBtn.addEventListener('click', ()=>{
-    if(!clips.length){ alert('Load clips first (local WAVs or clips.csv).'); return; }
+    if(!clips.length){ alert('Load clips CSV first.'); return; }
     const rater = (raterIdInput.value || '').trim();
     if(!rater){ alert('Enter Rater ID'); return; }
     let n = Math.max(1, Math.min(parseInt(clipsPerInput.value||'1',10), clips.length));
@@ -296,9 +255,7 @@
       clip_idx: idx,
       arm: armLabel,
       is_repeat: false,
-      show_ai: armLabel==='AI-Assisted' ? true :
-               armLabel==='Clinician-Only (Blind)' ? false :
-               (Math.random()<0.5)  // Mixed
+      show_ai: false // Only Clinician-Only (Blind) arm
     }));
 
     const repeats = Math.round(n * (repeatPct/100));
@@ -307,9 +264,7 @@
       for(const p of pick){
         items.push({
           clip_idx:p, arm:armLabel, is_repeat:true,
-          show_ai: armLabel==='AI-Assisted' ? true :
-                   armLabel==='Clinician-Only (Blind)' ? false :
-                   (Math.random()<0.5)
+          show_ai: false
         });
       }
       shuffle(items);
@@ -372,13 +327,9 @@
             </div>
           </div>
 
-          <div class="group" style="${it.show_ai ? 'border-left:3px solid #3ea0ff; padding-left:12px;' : ''}">
-            <h3>AI Output ${it.show_ai ? '' : '(hidden in this case)'}</h3>
-            ${it.show_ai ? `
-              <div>AI label: <b>${escapeHtml(ai.ai_label || '—')}</b>
-              ${ai.ai_prob ? ` • p=${escapeHtml(ai.ai_prob)}</div>` : ''}
-              ${ai.explainer_url ? `<div style="margin-top:8px;"><img src="${escapeHtml(ai.explainer_url)}" alt="explainer" style="max-width:100%; border-radius:10px; border:1px solid #2a3a54;"/></div>` : ''}
-            ` : `<div class="muted">This trial is blinded (no AI visible).</div>`}
+          <div class="group">
+            <h3>AI Output (hidden)</h3>
+            <div class="muted">This trial is blinded (no AI visible).</div>
           </div>
         </div>
 
@@ -489,7 +440,7 @@
         severity: getSev() || '',
         confidence: getConf() || '',
         quality: getQual() || '',
-        used_expl: it.show_ai ? 1 : 0,
+        used_expl: 0, // Always 0 for Clinician-Only
         replay_count: replays,
         elapsed_s: elapsed
       };
