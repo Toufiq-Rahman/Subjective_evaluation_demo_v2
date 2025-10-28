@@ -79,10 +79,7 @@
         <label for="wavInput">Select WAV files (multiple)</label>
         <input id="wavInput" name="wavInput" type="file" accept=".wav" multiple />
       </div>
-      <div>
-        <label for="aiCsvInput">Optional AI outputs (CSV: filename,ai_label,ai_prob,explainer_url)</label>
-        <input id="aiCsvInput" name="aiCsvInput" type="file" accept=".csv" />
-      </div>
+
       <div>
         <label for="clipsCsvInput">Clips CSV (remote URLs): columns <code>url,filename</code> (+optional like <code>gt_label</code>)</label>
         <input id="clipsCsvInput" name="clipsCsvInput" type="file" accept=".csv" />
@@ -110,8 +107,6 @@
         <label for="armSel">Arm / Condition</label>
         <select id="armSel" name="armSel">
           <option>Clinician-Only (Blind)</option>
-          <option>AI-Assisted</option>
-          <option>Mixed (50% blind)</option>
         </select>
       </div>
       <div class="center">
