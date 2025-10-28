@@ -76,10 +76,13 @@
     <div class="row">
       <div>
         <div class="section-title">1) Load PCG clips</div>
-        <label for="clipsCsvInput">Clips CSV (remote URLs): columns <code>url,filename</code> (+optional like <code>gt_label</code>)</label>
+        <label for="clipsCsvInput">Clips CSV (remote URLs)</label>
         <input id="clipsCsvInput" name="clipsCsvInput" type="file" accept=".csv" />
       </div>
-      <div> </div>
+      <div>
+        <label for="aiCsvInput">Optional AI outputs </label>
+        <input id="aiCsvInput" name="aiCsvInput" type="file" accept=".csv" />
+      </div>
       <div></div> <!-- Empty column for layout -->
     </div>
 
@@ -288,11 +291,8 @@
           <div class="muted">Rater: <b>${escapeHtml(session.rater)}</b> • Arm: <b>${escapeHtml(it.arm)}</b></div>
         </div>
 
-        <div class="muted" style="margin:6px 0 8px;">
-          Clip: <b>${escapeHtml(src.name)}</b>
-          ${meta.gt_label ? ` • GT: <b>${escapeHtml(meta.gt_label)}</b>` : ''}
-        </div>
-
+        <!-- REMOVED clip name and GT label to prevent bias -->
+        
         <div id="audioLoading" class="audio-loading">Loading audio via CORS proxy...</div>
         <audio id="player" controls preload="none" crossorigin="anonymous" src="${escapeHtml(src.url)}"></audio>
         <div id="audioError"></div>
